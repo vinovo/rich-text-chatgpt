@@ -1,18 +1,8 @@
 import React, { useState } from 'react';
 import { Editor } from '@tinymce/tinymce-react';
 import './App.css';
-import OpenAI from 'openai';
-import { OPENAI_ORGANIZATION, OPENAI_API_KEY, OPENAI_PROJECT, TINYMCE_API_KEY } from './config';
-
-console.log('apikey', OPENAI_API_KEY)
-
-// Initialize OpenAI client using environment variables
-const openai = new OpenAI({
-  organization: OPENAI_ORGANIZATION,
-  apiKey: OPENAI_API_KEY,
-  project: OPENAI_PROJECT,
-  dangerouslyAllowBrowser: true
-});
+import { TINYMCE_API_KEY } from './config';
+import { streamToOpenAI } from './api/openaiClient';
 
 function App() {
   const [inputContent, setInputContent] = useState('');
@@ -23,20 +13,11 @@ function App() {
   };
 
   const handleSend = async () => {
+    setOutputContent(''); // Clear the output before new streaming
     try {
-      console.log('Sending request with input content:', inputContent);
-      const response = await openai.chat.completions.create({
-        messages: [
-          { role: "system", content: "You are a helpful assistant." },
-          { role: "user", content: inputContent }
-        ],
-        model: "gpt-4o-mini",
+      await streamToOpenAI(inputContent, (data) => {
+        setOutputContent((prevContent) => prevContent + data);
       });
-
-      console.log('Response received:', response);
-      const text = response.choices[0].message.content;
-      setOutputContent(text);
-      console.log('Output content set:', text);
     } catch (error) {
       console.error('Error sending the request', error);
     }
@@ -57,14 +38,25 @@ function App() {
                 'advlist autolink lists link image charmap print preview anchor',
                 'searchreplace visualblocks code fullscreen',
                 'insertdatetime media table paste code help wordcount',
-                'paste' // Add the paste plugin
+                'paste', // Add the paste plugin
+                'powerpaste', // Add the PowerPaste plugin
+                'code', // Add the code plugin
+                'table', // Add the table plugin
+                'image', // Add the image plugin
+                'media', // Add the media plugin
+                'emoticons', // Add the emoticons plugin
               ],
-              toolbar:
-                'undo redo | formatselect | bold italic backcolor | \
-                alignleft aligncenter alignright alignjustify | \
-                bullist numlist outdent indent | removeformat | help',
+              toolbar: 
+                'undo redo | formatselect | fontselect fontsizeselect | ' +
+                'bold italic underline strikethrough | forecolor backcolor | ' +
+                'alignleft aligncenter alignright alignjustify | ' +
+                'bullist numlist outdent indent | removeformat | ' +
+                'link image media | code | table | emoticons',
               paste_as_text: false, // Ensure styles are retained
-              paste_data_images: true // Allow pasting images
+              paste_data_images: true, // Allow pasting images
+              powerpaste_allow_local_images: true, // Enable local image handling
+              powerpaste_word_import: 'clean', // Options: 'clean', 'merge'
+              powerpaste_html_import: 'clean', // Options: 'clean', 'merge'
             }}
             onEditorChange={handleEditorChange}
           />
